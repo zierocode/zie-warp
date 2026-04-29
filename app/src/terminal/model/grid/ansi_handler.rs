@@ -184,6 +184,22 @@ impl ansi::Handler for GridHandler {
                 "Grid received input but did not receive Reset Grid OSC"
             );
         }
+        // Thai sara am (U+0E33) has unicode_width=1 but is visually a combining vowel
+        // that must be shaped together with its base character. Override to zerowidth so
+        // it is bundled into the preceding cell's string and shaped by CoreText as a unit.
+        if is_thai_visual_combining(c) {
+            let mut col = self.grid.cursor().point.col;
+            if !self.grid.cursor().input_needs_wrap {
+                col = col.saturating_sub(1);
+            }
+            let row = self.grid.cursor_point().row;
+            if self.grid[row][col].flags.contains(Flags::WIDE_CHAR_SPACER) {
+                col = col.saturating_sub(1);
+            }
+            self.grid[row][col].push_zerowidth(c, /* log_long_grapheme_warnings */ true);
+            return;
+        }
+
         // Number of cells the char will occupy.
         let Some(width) = c.width() else {
             return;
@@ -1943,4 +1959,14 @@ impl GridHandler {
 
         Ok(())
     }
+}
+
+/// Returns true for Thai characters that Unicode classifies as width-1 but that are
+/// visually combining vowels requiring shaping together with the preceding base glyph.
+///
+/// U+0E33 THAI CHARACTER SARA AM is the primary case: Unicode Lo category gives it
+/// width=1, but it renders as a superscript nikkhahit + a trailing component that
+/// must be positioned relative to the base consonant by the shaper.
+fn is_thai_visual_combining(c: char) -> bool {
+    matches!(c, '\u{0E33}') // sara am ำ
 }
