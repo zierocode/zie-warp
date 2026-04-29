@@ -622,7 +622,15 @@ fn render_grid_without_ligatures<'a>(
             continue;
         };
 
+        let mut skip_sara_am_cell = false;
         for col in 0..grid.columns() {
+            // Sara am (U+0E33) was rendered as a cluster with its base consonant
+            // in the previous iteration — skip it now.
+            if skip_sara_am_cell {
+                skip_sara_am_cell = false;
+                continue;
+            }
+
             let current_point = Point::new(row_idx, col);
 
             // Skip the cursor cell when CLI agent rich input is open
@@ -694,7 +702,19 @@ fn render_grid_without_ligatures<'a>(
                 }
             }
             // Check if the current block match contains the point.
-            let cell = &row[col];
+            // Thai sara am lookahead: if the next cell holds sara am (U+0E33),
+            // bundle it with this base cell so CoreText shapes them together and
+            // places the nikkhahit at the correct y position.
+            let sara_am_bundle: Option<Cell> =
+                if col + 1 < grid.columns() && row[col + 1].c == '\u{0E33}' {
+                    let mut bundled = row[col].clone();
+                    bundled.push_zerowidth('\u{0E33}', false);
+                    skip_sara_am_cell = true;
+                    Some(bundled)
+                } else {
+                    None
+                };
+            let cell = sara_am_bundle.as_ref().unwrap_or(&row[col]);
             let mut cell_type = CellType::default();
             let mut first_cell_in_link = false;
             let mut first_cell_in_secret = FirstCellInSecret::No;
