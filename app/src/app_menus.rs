@@ -26,7 +26,6 @@ use enclose::enclose;
 use itertools::Itertools;
 use settings::manager::SettingsManager;
 use settings::Setting as _;
-use warp_core::context_flag::ContextFlag;
 use warp_util::path::user_friendly_path;
 use warpui::actions::StandardAction;
 use warpui::keymap::{Keystroke, Trigger};
@@ -503,40 +502,6 @@ fn make_new_tab_menu(ctx: &AppContext) -> Menu {
     Menu::new("Tab", items)
 }
 
-fn make_new_ai_menu(ctx: &AppContext) -> Menu {
-    let mut items = vec![];
-
-    if FeatureFlag::AgentView.is_enabled() {
-        items.push(updateable_custom_item_without_checkmark(
-            CustomAction::NewAgentModePane,
-            ctx,
-        ));
-        items.push(updateable_custom_item_without_checkmark(
-            CustomAction::AttachSelectionAsAgentModeContext,
-            ctx,
-        ));
-        items.extend([
-            MenuItem::Separator,
-            updateable_custom_item_without_checkmark(CustomAction::AISearch, ctx),
-        ]);
-    }
-
-    if FeatureFlag::AIRules.is_enabled() {
-        items.extend([
-            MenuItem::Separator,
-            updateable_custom_item_without_checkmark(CustomAction::OpenAIFactCollection, ctx),
-        ]);
-    }
-
-    if FeatureFlag::McpServer.is_enabled() && ContextFlag::ShowMCPServers.is_enabled() {
-        items.push(updateable_custom_item_without_checkmark(
-            CustomAction::OpenMCPServerCollection,
-            ctx,
-        ));
-    }
-
-    Menu::new("AI", items)
-}
 
 fn make_new_blocks_menu(ctx: &AppContext) -> Menu {
     let mut items = vec![
