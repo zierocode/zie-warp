@@ -1716,12 +1716,14 @@ fn render_cell_glyph(
     let font_id = font_id_cache.font_ids[font_style as usize]
         .get_or_insert_with(|| ctx.font_cache.select_font(font_family, properties));
 
-    let glyph_and_font = match cell_content {
+    let glyph_cluster: Option<cell_glyph_cache::GlyphCluster> = match cell_content {
         // Special-case whitespace, which doesn't need rendering.  We
         // explicitly check these two chars instead of using
         // `char::is_whitespace` for performance reasons.
         CharOrStr::Char(' ' | '\t') => None,
-        CharOrStr::Char(char) => glyphs.glyph_for_char(char, *font_id, ctx.font_cache),
+        CharOrStr::Char(char) => glyphs
+            .glyph_for_char(char, *font_id, ctx.font_cache)
+            .map(|(glyph_id, font_id)| (font_id, vec![(glyph_id, vec2f(0., 0.))])),
         // Certain zerowidth characters, such as emoji presentation selectors, can affect the underlying glyph and
         // change the rendering. Hence, we need to layout/render the text as a combined string, instead of simply
         // the single character. For example, in \0x2601\0xFE0F, the FE0F selector causes ☁️ to be changed from a
@@ -1750,13 +1752,16 @@ fn render_cell_glyph(
             });
         }
         None => {
-            // Add FontId as part of the hashkey since characters with different
-            // fonts will have different glyph ids.
-            if let Some((glyph_id, font_id)) = glyph_and_font {
-                // If we don't have special handling for the character, draw the
-                // glyph from the font.
-                ctx.scene
-                    .draw_glyph(origin, glyph_id, font_id, font_size, foreground_color);
+            if let Some((font_id, cluster_glyphs)) = glyph_cluster {
+                for (glyph_id, glyph_offset) in cluster_glyphs {
+                    ctx.scene.draw_glyph(
+                        origin + glyph_offset,
+                        glyph_id,
+                        font_id,
+                        font_size,
+                        foreground_color,
+                    );
+                }
             }
         }
     }

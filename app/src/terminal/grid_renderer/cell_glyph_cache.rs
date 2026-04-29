@@ -3,11 +3,16 @@
 use warpui::elements::DEFAULT_LINE_HEIGHT_RATIO;
 
 use warpui::fonts::{Cache as FontCache, FamilyId, FontId, GlyphId, Properties};
+use warpui::geometry::vector::{vec2f, Vector2F};
 use warpui::platform::LineStyle;
 use warpui::text_layout::{StyleAndFont, DEFAULT_TOP_BOTTOM_RATIO};
 use warpui::PaintContext;
 
 use std::collections::HashMap;
+
+/// A cluster of glyphs from a single cell — one base glyph plus zero or more
+/// combining-mark glyphs, each with a shaping-derived position offset.
+pub type GlyphCluster = (FontId, Vec<(GlyphId, Vector2F)>);
 
 /// Stores cached glyph values for characters/strings. Note that we normally only need to look up
 /// characters - we only look up strings in the case of zerowidth characters (which act as modifiers
@@ -16,7 +21,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct CellGlyphCache {
     glyph_cache: HashMap<(char, FontId), Option<(GlyphId, FontId)>>,
-    string_cache: HashMap<(String, FontId), Option<(GlyphId, FontId)>>,
+    string_cache: HashMap<(String, FontId), Option<GlyphCluster>>,
 }
 
 impl CellGlyphCache {
@@ -42,8 +47,8 @@ impl CellGlyphCache {
         font_size: f32,
         properties: Properties,
         ctx: &mut PaintContext,
-    ) -> Option<(GlyphId, FontId)> {
-        let glyph = *self
+    ) -> Option<GlyphCluster> {
+        let glyph = self
             .string_cache
             .entry((string.to_owned(), font_id))
             .or_insert_with(|| {
@@ -73,22 +78,27 @@ impl CellGlyphCache {
                     &font_cache.text_layout_system(),
                 );
                 let run = line.runs.first()?;
-                if run.glyphs.len() > 1 {
-                    // If we have more than one glyph, something has gone wrong.
-                    return None;
-                }
-                run.glyphs.first().map(|glyph| (glyph.id, run.font_id))
-            });
+                let font_id = run.font_id;
+                let glyphs: Vec<(GlyphId, Vector2F)> = run
+                    .glyphs
+                    .iter()
+                    .map(|g| (g.id, g.position_along_baseline))
+                    .collect();
+                Some((font_id, glyphs))
+            })
+            .clone();
 
         glyph.or_else(|| {
             #[cfg(debug_assertions)]
             log::warn!("Falling back to glyph for first character of string, could not get glyph for entire string: {string:?}");
             let first_char = string.chars().next()?;
-            let glyph = self.glyph_for_char(first_char, font_id, font_cache);
+            let (glyph_id, font_id) = self.glyph_for_char(first_char, font_id, font_cache)?;
             // Make sure we update the cache with the fallback, so we don't
             // recompute it again.
-            self.string_cache.insert((string.to_owned(), font_id), glyph);
-            glyph
+            let fallback = (font_id, vec![(glyph_id, vec2f(0., 0.))]);
+            self.string_cache
+                .insert((string.to_owned(), font_id), Some(fallback.clone()));
+            Some(fallback)
         })
     }
 }
