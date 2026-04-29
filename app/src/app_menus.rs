@@ -148,11 +148,7 @@ fn make_new_app_menu(ctx: &AppContext) -> Menu {
         ))
     }
 
-    menu_items.extend([
-        MenuItem::Separator,
-        updateable_custom_item_without_checkmark(CustomAction::ReferAFriend, ctx),
-        MenuItem::Separator,
-    ]);
+    menu_items.push(MenuItem::Separator);
 
     let preferences_menu_items = vec![
         updateable_custom_item_without_checkmark(CustomAction::ShowSettings, ctx),
@@ -374,8 +370,6 @@ fn make_new_edit_menu(ctx: &AppContext) -> Menu {
 
 fn make_new_view_menu(ctx: &AppContext) -> Menu {
     let mut items = vec![
-        updateable_custom_item_without_checkmark(CustomAction::ToggleWarpDrive, ctx),
-        MenuItem::Separator,
         updateable_custom_item_without_checkmark(CustomAction::CommandPalette, ctx),
         updateable_custom_item_without_checkmark(CustomAction::NavigationPalette, ctx),
         updateable_custom_item_without_checkmark(CustomAction::LaunchConfigPalette, ctx),
@@ -511,20 +505,22 @@ fn make_new_tab_menu(ctx: &AppContext) -> Menu {
 }
 
 fn make_new_ai_menu(ctx: &AppContext) -> Menu {
-    let mut items = vec![updateable_custom_item_without_checkmark(
-        CustomAction::NewAgentModePane,
-        ctx,
-    )];
+    let mut items = vec![];
 
-    items.push(updateable_custom_item_without_checkmark(
-        CustomAction::AttachSelectionAsAgentModeContext,
-        ctx,
-    ));
-
-    items.extend([
-        MenuItem::Separator,
-        updateable_custom_item_without_checkmark(CustomAction::AISearch, ctx),
-    ]);
+    if FeatureFlag::AgentView.is_enabled() {
+        items.push(updateable_custom_item_without_checkmark(
+            CustomAction::NewAgentModePane,
+            ctx,
+        ));
+        items.push(updateable_custom_item_without_checkmark(
+            CustomAction::AttachSelectionAsAgentModeContext,
+            ctx,
+        ));
+        items.extend([
+            MenuItem::Separator,
+            updateable_custom_item_without_checkmark(CustomAction::AISearch, ctx),
+        ]);
+    }
 
     if FeatureFlag::AIRules.is_enabled() {
         items.extend([
