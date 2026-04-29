@@ -1745,15 +1745,7 @@ fn render_cell_glyph(
         ),
     };
 
-    // Thai sara am (U+0E33) occupies its own cell (unicode_width=1) but visually
-    // combines with the preceding consonant. Shift its render origin one cell to
-    // the left so the shaper-placed glyph lands on the correct consonant cell.
-    let thai_combining_shift = match cell_content {
-        CharOrStr::Char('\u{0E33}') => -cell_size.x(),
-        _ => 0.0,
-    };
-    let origin =
-        grid_origin + glyph_offset + baseline_position + vec2f(thai_combining_shift, 0.);
+    let origin = grid_origin + glyph_offset + baseline_position;
 
     // Handle special unicode characters that will look better with native
     // rendering instead of using glyphs from the font.
