@@ -14296,7 +14296,7 @@ impl View for Input {
             && !should_render_ps1_prompt(&self.model.lock(), app)
         {
             self.render_terminal_input(app)
-        } else if !FeatureFlag::AgentView.is_enabled() && is_universal_input {
+        } else if !FeatureFlag::AgentView.is_enabled() && is_universal_input && cfg!(feature = "agent_view") {
             self.render_universal_developer_input(app)
         } else {
             self.render_classic_input(app)
