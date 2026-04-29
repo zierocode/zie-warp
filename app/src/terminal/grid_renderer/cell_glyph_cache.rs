@@ -190,21 +190,6 @@ fn shape_thai_sara_am(
     let run = line.runs.first()?;
     let result_font_id = run.font_id;
 
-    log::info!(
-        "shape_thai_sara_am: {} glyphs from CoreText",
-        run.glyphs.len()
-    );
-    for g in &run.glyphs {
-        log::info!(
-            "  glyph id={} index={} pos=({:.2},{:.2}) width={:.2}",
-            g.id,
-            g.index,
-            g.position_along_baseline.x(),
-            g.position_along_baseline.y(),
-            g.width
-        );
-    }
-
     // Split glyphs by char index: index 0 = ก (base), index 1 = ำ (sara am).
     // Compute the advance of the base consonant as the minimum x position of
     // any sara am glyph (CoreText places sara am glyphs after the base advance).

@@ -702,9 +702,9 @@ fn render_grid_without_ligatures<'a>(
                 }
             }
             // Check if the current block match contains the point.
-            // Thai sara am lookahead: if the next cell holds sara am (U+0E33),
-            // bundle it with this base cell so CoreText shapes them together and
-            // places the nikkhahit at the correct y position.
+            // Thai sara am lookahead: bundle sara am (U+0E33) with its base consonant
+            // so CoreText shapes them together and places the nikkhahit diacritic
+            // at the correct y position above the consonant.
             let sara_am_bundle: Option<Cell> =
                 if col + 1 < grid.columns() && row[col + 1].c == '\u{0E33}' {
                     let mut bundled = row[col].clone();
