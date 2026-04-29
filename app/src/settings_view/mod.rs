@@ -1184,10 +1184,6 @@ impl SettingsView {
         // with subpages; the actual AI SettingsPage is hidden from direct sidebar listing.
         let mut nav_items = vec![
             SettingsNavItem::Page(SettingsSection::Account),
-            SettingsNavItem::Umbrella(SettingsUmbrella::new(
-                "Agents",
-                SettingsSection::ai_subpages().to_vec(),
-            )),
             SettingsNavItem::Page(SettingsSection::BillingAndUsage),
             SettingsNavItem::Umbrella(SettingsUmbrella::new(
                 "Code",

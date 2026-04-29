@@ -5,10 +5,7 @@ use super::{
     },
     SettingsSection,
 };
-use crate::{
-    appearance::Appearance, channel::ChannelState, themes::theme::ColorScheme,
-    workspace::WorkspaceAction,
-};
+use crate::{appearance::Appearance, channel::ChannelState, workspace::WorkspaceAction};
 use warpui::{
     assets::asset_cache::AssetSource,
     elements::{
@@ -63,14 +60,7 @@ impl SettingsWidget for AboutPageWidget {
         appearance: &Appearance,
         _app: &AppContext,
     ) -> Box<dyn Element> {
-        let theme = appearance.theme();
         let ui_builder = appearance.ui_builder();
-
-        let image_path = if theme.inferred_color_scheme() == ColorScheme::LightOnDark {
-            "bundled/svg/warp-logo-with-light-title.svg"
-        } else {
-            "bundled/svg/warp-logo-with-dark-title.svg"
-        };
 
         let version = ChannelState::app_version().unwrap_or("v#.##.###");
 
@@ -78,7 +68,7 @@ impl SettingsWidget for AboutPageWidget {
             .span(version.to_string())
             .with_soft_wrap()
             .build()
-            .with_margin_top(16.)
+            .with_margin_top(8.)
             .finish();
 
         let copy_version_icon = appearance
@@ -95,7 +85,7 @@ impl SettingsWidget for AboutPageWidget {
             .with_children([
                 version_text,
                 Container::new(copy_version_icon)
-                    .with_margin_top(16.)
+                    .with_margin_top(8.)
                     .with_padding_left(6.)
                     .finish(),
             ]);
@@ -106,19 +96,28 @@ impl SettingsWidget for AboutPageWidget {
                 .with_child(
                     ConstrainedBox::new(
                         Image::new(
-                            AssetSource::Bundled { path: image_path },
+                            AssetSource::Bundled {
+                                path: "bundled/svg/warp-logo-neutral.svg",
+                            },
                             CacheOption::BySize,
                         )
                         .finish(),
                     )
-                    .with_max_height(100.)
-                    .with_max_width(350.)
+                    .with_max_height(64.)
+                    .with_max_width(64.)
                     .finish(),
+                )
+                .with_child(
+                    ui_builder
+                        .span("zie-warp")
+                        .build()
+                        .with_margin_top(12.)
+                        .finish(),
                 )
                 .with_child(version_row.finish())
                 .with_child(
                     ui_builder
-                        .span("Copyright 2026 Warp")
+                        .span("Copyright 2026 zie-warp")
                         .build()
                         .with_margin_top(16.)
                         .finish(),

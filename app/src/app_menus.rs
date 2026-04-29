@@ -68,7 +68,6 @@ pub fn menu_bar(ctx: &mut AppContext) -> MenuBar {
         make_new_view_menu(ctx),
         make_new_tab_menu(ctx),
         make_new_blocks_menu(ctx),
-        make_new_ai_menu(ctx),
         make_new_window_menu(),
         make_new_help_menu(),
     ])
