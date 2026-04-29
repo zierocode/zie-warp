@@ -1721,9 +1721,15 @@ fn render_cell_glyph(
         // explicitly check these two chars instead of using
         // `char::is_whitespace` for performance reasons.
         CharOrStr::Char(' ' | '\t') => None,
-        CharOrStr::Char(char) => glyphs
-            .glyph_for_char(char, *font_id, ctx.font_cache)
-            .map(|(glyph_id, font_id)| (font_id, vec![(glyph_id, vec2f(0., 0.))])),
+        CharOrStr::Char(char) => glyphs.glyph_for_char(
+            char,
+            *font_id,
+            ctx.font_cache,
+            font_family,
+            font_size,
+            properties,
+            ctx,
+        ),
         // Certain zerowidth characters, such as emoji presentation selectors, can affect the underlying glyph and
         // change the rendering. Hence, we need to layout/render the text as a combined string, instead of simply
         // the single character. For example, in \0x2601\0xFE0F, the FE0F selector causes ☁️ to be changed from a
@@ -1739,7 +1745,15 @@ fn render_cell_glyph(
         ),
     };
 
-    let origin = grid_origin + glyph_offset + baseline_position;
+    // Thai sara am (U+0E33) occupies its own cell (unicode_width=1) but visually
+    // combines with the preceding consonant. Shift its render origin one cell to
+    // the left so the shaper-placed glyph lands on the correct consonant cell.
+    let thai_combining_shift = match cell_content {
+        CharOrStr::Char('\u{0E33}') => -cell_size.x(),
+        _ => 0.0,
+    };
+    let origin =
+        grid_origin + glyph_offset + baseline_position + vec2f(thai_combining_shift, 0.);
 
     // Handle special unicode characters that will look better with native
     // rendering instead of using glyphs from the font.
