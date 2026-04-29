@@ -23,6 +23,11 @@
 
 <h1></h1>
 
+# zie-warp
+
+> Custom fork of Warp — focused on Thai script rendering fixes and personal workflow integrations.
+> Upstream: [warpdotdev/warp](https://github.com/warpdotdev/warp) | Branch: `feat/thai-rendering`
+
 ## About
 
 [Warp](https://www.warp.dev) is an agentic development environment, born out of the terminal. Use Warp's built-in coding agent, or bring your own CLI agent (Claude Code, Codex, Gemini CLI, and others).
