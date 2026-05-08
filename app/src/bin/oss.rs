@@ -16,7 +16,10 @@ fn main() -> Result<()> {
             app_id: AppId::new("dev", "warp", "WarpOss"),
             logfile_name: "warp-oss.log".into(),
             server_config: WarpServerConfig::production(),
-            oz_config: OzConfig::production(),
+            oz_config: OzConfig {
+                oz_root_url: "".into(),
+                workload_audience_url: None,
+            },
             telemetry_config: None,
             crash_reporting_config: None,
             autoupdate_config: None,
@@ -41,19 +44,19 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
     <key>CFBundleDisplayName</key>
-    <string>WarpOss</string>
+    <string>zie-warp</string>
     <key>CFBundleExecutable</key>
     <string>warp-oss</string>
     <key>CFBundleIdentifier</key>
-    <string>dev.warp.WarpOss</string>
+    <string>dev.zie.ZieWarp</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>WarpOss</string>
+    <string>zie-warp</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.1</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <key>NSHighResolutionCapable</key>

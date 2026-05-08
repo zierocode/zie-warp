@@ -622,7 +622,15 @@ fn render_grid_without_ligatures<'a>(
             continue;
         };
 
+        let mut skip_sara_am_cell = false;
         for col in 0..grid.columns() {
+            // Sara am (U+0E33) was rendered as a cluster with its base consonant
+            // in the previous iteration — skip it now.
+            if skip_sara_am_cell {
+                skip_sara_am_cell = false;
+                continue;
+            }
+
             let current_point = Point::new(row_idx, col);
 
             // Skip the cursor cell when CLI agent rich input is open
@@ -694,7 +702,19 @@ fn render_grid_without_ligatures<'a>(
                 }
             }
             // Check if the current block match contains the point.
-            let cell = &row[col];
+            // Thai sara am lookahead: bundle sara am (U+0E33) with its base consonant
+            // so CoreText shapes them together and places the nikkhahit diacritic
+            // at the correct y position above the consonant.
+            let sara_am_bundle: Option<Cell> =
+                if col + 1 < grid.columns() && row[col + 1].c == '\u{0E33}' {
+                    let mut bundled = row[col].clone();
+                    bundled.push_zerowidth('\u{0E33}', false);
+                    skip_sara_am_cell = true;
+                    Some(bundled)
+                } else {
+                    None
+                };
+            let cell = sara_am_bundle.as_ref().unwrap_or(&row[col]);
             let mut cell_type = CellType::default();
             let mut first_cell_in_link = false;
             let mut first_cell_in_secret = FirstCellInSecret::No;
@@ -1721,9 +1741,15 @@ fn render_cell_glyph(
         // explicitly check these two chars instead of using
         // `char::is_whitespace` for performance reasons.
         CharOrStr::Char(' ' | '\t') => None,
-        CharOrStr::Char(char) => glyphs
-            .glyph_for_char(char, *font_id, ctx.font_cache)
-            .map(|(glyph_id, font_id)| (font_id, vec![(glyph_id, vec2f(0., 0.))])),
+        CharOrStr::Char(char) => glyphs.glyph_for_char(
+            char,
+            *font_id,
+            ctx.font_cache,
+            font_family,
+            font_size,
+            properties,
+            ctx,
+        ),
         // Certain zerowidth characters, such as emoji presentation selectors, can affect the underlying glyph and
         // change the rendering. Hence, we need to layout/render the text as a combined string, instead of simply
         // the single character. For example, in \0x2601\0xFE0F, the FE0F selector causes ☁️ to be changed from a

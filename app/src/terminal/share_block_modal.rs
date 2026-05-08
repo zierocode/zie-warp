@@ -1022,7 +1022,7 @@ impl ShareBlockModal {
                 .finish()
             }
             None => {
-                log::warn!("Tried to render share modal without a model");
+                log::debug!("Tried to render share modal without a model");
                 Empty::new().finish()
             }
         };

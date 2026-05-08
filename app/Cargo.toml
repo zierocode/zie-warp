@@ -199,6 +199,7 @@ tikv-jemallocator = { version = "0.6", optional = true, features = [
     "override_allocator_on_supported_platforms",
 ] }
 toml = "0.8.13"
+toml_edit.workspace = true
 tracing.workspace = true
 ui_components.workspace = true
 unicase = "2.7.0"
@@ -348,11 +349,11 @@ nix = { workspace = true, features = [
     "mman",
 ] }
 
-[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))'.dependencies]
 crash-handler = { version = "0.6.3", optional = true }
 minidumper = { version = "0.8.3", optional = true }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 freedesktop-desktop-entry = "0.5.0"
 x11rb.workspace = true
 zbus.workspace = true
@@ -902,7 +903,7 @@ active_conversation_requires_interaction = []
 incremental_auto_reload = []
 orchestration = []
 orchestration_v2 = ["orchestration"]
-orchestration_event_push = ["orchestration_v2"]
+orchestration_pill_bar = []
 pending_user_query_indicator = []
 queue_slash_command = []
 inline_menu_headers = []
@@ -914,6 +915,7 @@ vertical_tabs_summary_mode = []
 tab_configs = []
 agent_harness = []
 oz_handoff = []
+handoff_local_cloud = []
 hoa_notifications = []
 open_code_notifications = []
 transfer_control_tool = []
@@ -927,12 +929,107 @@ hoa_remote_control = []
 codex_notifications = []
 cloud_mode_setup_v2 = ["cloud_mode"]
 cloud_mode_input_v2 = ["cloud_mode"]
+configurable_context_window = []
+handoff_cloud_cloud = ["cloud_mode_setup_v2"]
+
+# Minimal feature set for zie-warp OSS build.
+# Keeps only free, locally-useful features. No Warp AI / cloud / billing.
+# Note: inline_history_menu and inline_profile_selector depend on agent_view and are excluded.
+zie = [
+    # --- Terminal core ---
+    "render_continuous_block_selections_with_single_border",
+    "remove_alt_screen_padding",
+    "less_horizontal_terminal_padding",
+    "rect_selection",
+    "trim_trailing_blank_lines",
+    "reload_stale_conversation_files",
+    "default_waterfall_mode",
+    "richtext_multiselect",
+    "changed_lines_only_apply_diff_result",
+    "linked_code_blocks",
+    "fork_from_command",
+    "fast_forward_autoexecute_button",
+    "v4a_file_diffs",
+
+    # --- Input / history ---
+    "inline_menu_headers",
+    "workflow_aliases",
+    "dynamic_workflow_enums",
+    "command_correction_key",
+    "allow_ignoring_input_suggestions",
+    "clear_autosuggestion_on_escape",
+    "validate_autosuggestions",
+    "shell_selector",
+
+    # --- Local completions ---
+    "classic_completions",
+    "force_classic_completions",
+    "grep_tool",
+    "file_retrieval_tools",
+
+    # --- MCP (required for Claude Code / Codex) ---
+    "mcp_server",
+    "mcp_oauth",
+    "file_based_mcp",
+    "mcp_grouped_server_context",
+
+    # --- Local code tools ---
+    "vim_code_editor",
+    "code_find_replace",
+    "file_tree",
+    "inline_code_review",
+    "code_review_save_changes",
+    "code_review_find",
+    "revert_diff_hunk",
+    "discard_per_file_and_all_changes",
+    "revert_to_checkpoints",
+    "rewind_slash_command",
+    "expand_edit_to_pane",
+    "allow_opening_file_links_using_editor_env",
+
+    # --- UI polish ---
+    "minimalist_ui",
+    "avatar_in_tab_bar",
+    "full_screen_zen_mode",
+    "ligatures",
+    "kitty_images",
+    "kitty_keyboard_protocol",
+    "ui_zoom",
+    "tab_close_button_on_left",
+
+    # --- Tabs / layout ---
+    "tab_configs",
+    "vertical_tabs",
+    "new_tab_styling",
+    "tabbed_editor_view",
+    "configurable_toolbar",
+    "undo_closed_panes",
+    "profiles_design_revamp",
+    "multi_profile",
+
+    # --- Markdown (Claude Code / Codex output rendering) ---
+    "render_agent_mode_output_markdown",
+    "markdown_tables",
+    "markdown_mermaid",
+    "blocklist_markdown_images",
+
+    # --- Search ---
+    "global_search",
+    "command_palette_file_search",
+
+    # --- Settings ---
+    "settings_import",
+
+    # --- Notifications / misc ---
+    "pluggable_notifications",
+    "code_launch_modal",
+]
 
 [package.metadata.bundle.bin.warp-oss]
 category = "public.app-category.developer-tools"
 copyright = "© 2025, Denver Technologies, Inc"
-identifier = "dev.warp.WarpOss"
-name = "WarpOss"
+identifier = "dev.zie.ZieWarp"
+name = "zie-warp"
 resources = ["assets/onboarding"]
 icon = ["channels/oss/icon/no-padding/512x512.png", "channels/oss/icon/no-padding/icon.ico"]
 short_description = "The open-source, cloud-backed terminal for individuals and teams."
