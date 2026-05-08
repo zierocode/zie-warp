@@ -18023,7 +18023,8 @@ impl Workspace {
         }
 
         // Legacy AI assistant button (non-agent-mode only)
-        if is_online
+        if !cfg!(feature = "zie")
+            && is_online
             && !FeatureFlag::AgentMode.is_enabled()
             && !is_web_anonymous_user
             && !self.current_workspace_state.is_ai_assistant_panel_open
@@ -23511,7 +23512,8 @@ impl View for Workspace {
             }
         }
 
-        if !FeatureFlag::AgentMode.is_enabled()
+        if !cfg!(feature = "zie")
+            && !FeatureFlag::AgentMode.is_enabled()
             && AISettings::as_ref(app).is_any_ai_enabled(app)
             && self.should_show_ai_assistant_warm_welcome
             && !self.current_workspace_state.is_changelog_modal_open

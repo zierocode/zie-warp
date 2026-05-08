@@ -2,7 +2,7 @@
 //!
 //! Usage:
 //! ```
-//! cargo run --bin generate_settings_schema -- [--channel dev|preview|stable] [output_path]
+//! cargo run --bin generate_settings_schema -- [--channel dev|preview|stable|oss] [output_path]
 //! ```
 
 use std::collections::HashSet;
@@ -12,7 +12,7 @@ use schemars::SchemaGenerator;
 use serde_json::{Map, Value};
 
 use settings::schema::SettingSchemaEntry;
-use warp_core::features::{FeatureFlag, DEBUG_FLAGS, DOGFOOD_FLAGS, PREVIEW_FLAGS, RELEASE_FLAGS};
+use warp_core::features::{DEBUG_FLAGS, DOGFOOD_FLAGS, FeatureFlag, PREVIEW_FLAGS, RELEASE_FLAGS};
 
 /// Ensures all `inventory::submit!` registrations from the app crate's
 /// dependency tree are linked into the binary.
@@ -89,6 +89,7 @@ fn active_flags_for_channel(channel: &str) -> HashSet<FeatureFlag> {
     let mut flags = HashSet::new();
 
     let flag_lists: &[&[FeatureFlag]] = match channel {
+        "oss" => &[RELEASE_FLAGS],
         "stable" => &[RELEASE_FLAGS],
         "preview" => &[RELEASE_FLAGS, PREVIEW_FLAGS],
         "dev" => &[RELEASE_FLAGS, PREVIEW_FLAGS, DOGFOOD_FLAGS, DEBUG_FLAGS],
@@ -105,6 +106,36 @@ fn active_flags_for_channel(channel: &str) -> HashSet<FeatureFlag> {
     }
 
     flags
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oss_schema_uses_release_flags_without_preview_or_dogfood_flags() {
+        let flags = active_flags_for_channel("oss");
+
+        assert!(RELEASE_FLAGS.iter().all(|flag| flags.contains(flag)));
+        assert!(
+            PREVIEW_FLAGS
+                .iter()
+                .filter(|flag| !RELEASE_FLAGS.contains(flag))
+                .all(|flag| !flags.contains(flag))
+        );
+        assert!(
+            DOGFOOD_FLAGS
+                .iter()
+                .filter(|flag| !RELEASE_FLAGS.contains(flag))
+                .all(|flag| !flags.contains(flag))
+        );
+        assert!(
+            DEBUG_FLAGS
+                .iter()
+                .filter(|flag| !RELEASE_FLAGS.contains(flag))
+                .all(|flag| !flags.contains(flag))
+        );
+    }
 }
 
 /// Creates intermediate hierarchy objects so that a setting at e.g.

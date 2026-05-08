@@ -830,7 +830,8 @@ impl<'a> TabComponent<'a> {
         // But if it's on, we want to show the synced indicator if this tab is being synced.
         // If we aren't showing the synced indicator (and we know the setting is on),
         // we will show long-running, error indicators, etc. as applicable.
-        let indicator = if active_pane_is_ambient_agent_session {
+        let hide_ai_indicators = cfg!(feature = "zie");
+        let indicator = if active_pane_is_ambient_agent_session && !hide_ai_indicators {
             Indicator::AmbientAgent
         } else if active_pane_has_unsaved_code_changes {
             Indicator::UnsavedChanges
@@ -840,8 +841,18 @@ impl<'a> TabComponent<'a> {
             Indicator::None
         } else if are_inputs_synced {
             Indicator::Synced
-        } else if let Some(agent) = Self::agent_indicator(tab, ctx) {
-            agent
+        } else if !hide_ai_indicators {
+            if let Some(agent) = Self::agent_indicator(tab, ctx) {
+                agent
+            } else if let Some(shell_indicator_type) = shell_indicator_type {
+                Indicator::Shell(shell_indicator_type)
+            } else if has_active_pane_state_indicator {
+                pane_state_indicator
+            } else if is_maximized {
+                Indicator::Maximized
+            } else {
+                Indicator::None
+            }
         } else if let Some(shell_indicator_type) = shell_indicator_type {
             Indicator::Shell(shell_indicator_type)
         } else if has_active_pane_state_indicator {

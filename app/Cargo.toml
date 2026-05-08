@@ -1010,6 +1010,9 @@ zie = [
     # --- Tabs / layout ---
     "tab_configs",
     "vertical_tabs",
+    "vertical_tabs_summary_mode",
+    "directory_tab_colors",
+    "drag_tabs_to_windows",
     "new_tab_styling",
     "tabbed_editor_view",
     "configurable_toolbar",

@@ -94,9 +94,14 @@ done
 
 rm -rf "$WARP_APP_PATH"
 
+CARGO_FEATURE_ARGS=()
+if [[ "$WARP_CHANNEL" = "oss" ]]; then
+  CARGO_FEATURE_ARGS+=(--no-default-features)
+fi
+
 pushd app > /dev/null
 echo "Bundling app (bin: $WARP_BIN_NAME)..."
-cargo bundle --bin "$WARP_BIN_NAME" --features "$FEATURES" $PARAMS
+cargo bundle --bin "$WARP_BIN_NAME" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES" $PARAMS
 echo "Successfully bundled..."
 popd > /dev/null
 

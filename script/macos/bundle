@@ -311,7 +311,7 @@ elif [[ $RELEASE_CHANNEL = "oss" ]]; then
     WARP_SCHEME_NAME="warposs"
     # The OSS channel does not ship Sentry, so drop the cocoa_sentry feature
     # (which would otherwise pull in the Sentry framework dependency).
-    FEATURES="release_bundle,extern_plist"
+    FEATURES="release_bundle,extern_plist,zie"
 fi
 
 OUT_DIR="target/$TARGET_PROFILE_DIR/bundle/osx"
@@ -353,6 +353,11 @@ elif [[ "$ARTIFACT" == app ]]; then
   FEATURES="$FEATURES,gui,nld_improvements"
 fi
 
+CARGO_FEATURE_ARGS=()
+if [[ $RELEASE_CHANNEL = "oss" ]]; then
+  CARGO_FEATURE_ARGS+=(--no-default-features)
+fi
+
 # If we're building a universal bundle for the app artifact, make sure the additional target is available.
 if [[ $UNIVERSAL_BINARY = true ]]; then
     rustup target add "$ADDITIONAL_TARGET"
@@ -362,9 +367,9 @@ fi
 # then exit.  We use this script to invoke `cargo check` to ensure that we are
 # using the same feature flags and profile that we would be using in production.
 if [[ "$CHECK_ONLY" == "true" ]]; then
-  cargo check --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" --features "$FEATURES"
+  cargo check --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES"
   if [[ $UNIVERSAL_BINARY = true && "$ARTIFACT" != "cli" ]]; then
-    cargo check --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$ADDITIONAL_TARGET" --features "$FEATURES"
+    cargo check --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$ADDITIONAL_TARGET" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES"
   fi
   exit 0
 fi
@@ -394,7 +399,7 @@ if [[ "$ARTIFACT" == "app" ]]; then
 
   pushd app > /dev/null
   echo "Building and bundling $DEFAULT_TARGET for channel $RELEASE_CHANNEL and bundle id $BUNDLE_ID with profile $CARGO_PROFILE"
-  cargo bundle --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" --features "$FEATURES"
+  cargo bundle --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES"
   popd > /dev/null
 
   echo "Adding rpath to support mac frameworks (e.g. Sentry)"
@@ -463,7 +468,7 @@ if [[ "$ARTIFACT" == "app" ]]; then
           echo "Building $ADDITIONAL_TARGET to include in universal binary"
 
           pushd app > /dev/null
-          cargo build --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$ADDITIONAL_TARGET" --features "$FEATURES"
+          cargo build --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$ADDITIONAL_TARGET" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES"
           popd > /dev/null
       else
           echo "Skipping build of $ADDITIONAL_TARGET due to --skip-build flag"
@@ -572,7 +577,7 @@ elif [[ "$ARTIFACT" == "cli" ]]; then
     export "INFO_PLIST_PATH=$(realpath "$WARP_PLIST_PATH")"
     pushd app > /dev/null
     echo "Building $DEFAULT_TARGET for channel $RELEASE_CHANNEL with profile $CARGO_PROFILE"
-    cargo build --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" --features "$FEATURES"
+    cargo build --profile "$CARGO_PROFILE" --bin "$WARP_BIN" --target "$DEFAULT_TARGET" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES"
     popd > /dev/null
   else
     echo "Skipping binary build due to --skip-build flag"

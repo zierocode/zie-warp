@@ -18,17 +18,17 @@ cd "${REPO_ROOT}"
 
 OS_TYPE="$(uname -s)"
 
-FEATURES="gui"
-
 ./script/install_channel_config || echo "Skipping internal channel config installation (no repo access)."
 
 # If warp_channel_config is on PATH, build the Local channel binary; otherwise build the OSS channel.
 if command -v warp-channel-config &>/dev/null; then
     WARP_BIN_NAME="warp"
     WARP_CHANNEL="local"
+    FEATURES="gui"
 else
     WARP_BIN_NAME="warp-oss"
     WARP_CHANNEL="oss"
+    FEATURES="gui,zie"
 fi
 
 # Shared argument parsing. macOS-specific flags (--dont-open,
@@ -115,11 +115,15 @@ if [[ "$OS_TYPE" = "Darwin" ]]; then
     exec ./script/macos/run "${MAC_ARGS[@]}"
   fi
 elif [[ "$OS_TYPE" = "Linux" ]] || [[ "$OS_TYPE" =~ ^(MINGW64_NT|MSYS_NT) ]]; then
-  echo "Running cargo run --bin $WARP_BIN_NAME --features \"$FEATURES\" ${CARGO_PARAMS[*]}"
+  CARGO_FEATURE_ARGS=()
+  if [[ "$WARP_CHANNEL" = "oss" ]]; then
+    CARGO_FEATURE_ARGS+=(--no-default-features)
+  fi
+  echo "Running cargo run --bin $WARP_BIN_NAME ${CARGO_FEATURE_ARGS[*]} --features \"$FEATURES\" ${CARGO_PARAMS[*]}"
   if [[ ${#WARP_ARGS[@]} -gt 0 ]]; then
-    cargo run --bin "$WARP_BIN_NAME" --features "$FEATURES" "${CARGO_PARAMS[@]}" -- "${WARP_ARGS[@]}"
+    cargo run --bin "$WARP_BIN_NAME" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES" "${CARGO_PARAMS[@]}" -- "${WARP_ARGS[@]}"
   else
-    cargo run --bin "$WARP_BIN_NAME" --features "$FEATURES" "${CARGO_PARAMS[@]}"
+    cargo run --bin "$WARP_BIN_NAME" "${CARGO_FEATURE_ARGS[@]}" --features "$FEATURES" "${CARGO_PARAMS[@]}"
   fi
 else
   echo "No run script defined for the current platform ($OS_TYPE)!" >&2
