@@ -9,15 +9,21 @@
 use ai::agent::action::RunAgentsExecutionMode;
 use ai::agent::orchestration_config::{OrchestrationConfig, OrchestrationExecutionMode};
 use pathfinder_color::ColorU;
+use pathfinder_geometry::vector::{vec2f, Vector2F};
 use std::fmt::Debug;
 use warpui::elements::{
     ChildView, ConstrainedBox, Container, CornerRadius, CrossAxisAlignment, Empty, Expanded, Flex,
-    Hoverable, MainAxisAlignment, MainAxisSize, MouseStateHandle, ParentElement, Radius, Text,
+    Hoverable, MainAxisAlignment, MainAxisSize, MouseStateHandle, ParentElement, Point, Radius,
+    Text,
 };
+use warpui::event::DispatchedEvent;
 use warpui::platform::Cursor;
 use warpui::ui_components::button::ButtonVariant;
 use warpui::ui_components::components::{Coords, UiComponentStyles};
-use warpui::{AppContext, Element, SingletonEntity, View, ViewContext, ViewHandle};
+use warpui::{
+    AfterLayoutContext, AppContext, Element, EventContext, LayoutContext, PaintContext,
+    SingletonEntity, SizeConstraint, View, ViewContext, ViewHandle,
+};
 
 use warp_cli::agent::Harness;
 use warp_core::channel::{Channel, ChannelState};
@@ -27,6 +33,7 @@ use warp_core::ui::theme::Fill;
 use crate::ai::cloud_environments::CloudAmbientAgentEnvironment;
 use crate::ai::execution_profiles::model_menu_items::available_model_menu_items;
 use crate::ai::harness_display;
+use crate::ai::llms::LLMProvider;
 use crate::appearance::Appearance;
 use crate::menu::{MenuItem, MenuItemFields};
 use crate::ui_components::blended_colors;
@@ -43,6 +50,7 @@ pub const ORCHESTRATION_PICKER_HEIGHT: f32 = 36.;
 pub const ORCHESTRATION_PICKER_BORDER_WIDTH: f32 = 1.;
 pub const ORCHESTRATION_PICKER_FONT_SIZE: f32 = 14.;
 pub const ORCHESTRATION_PICKER_RADIUS: f32 = 4.;
+pub const ORCHESTRATION_PICKER_MAX_WIDTH: f32 = 205.;
 
 // ── Action trait ────────────────────────────────────────────────────
 
@@ -61,7 +69,7 @@ pub trait OrchestrationControlAction: Clone + Debug + Send + Sync + 'static {
 
 /// Run-wide configuration fields shared between the confirmation card
 /// editor and the plan-card config block. Card-specific fields
-/// (agent_run_configs, base_prompt, summary, skills, is_editor_open)
+/// (agent_run_configs, base_prompt, summary, skills)
 /// remain on the per-view state structs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrchestrationEditState {
@@ -284,15 +292,48 @@ pub fn new_standard_picker_dropdown<A: OrchestrationControlAction, V: View>(
     })
 }
 
+/// Populates the model picker with all available models (no harness filter).
 pub fn populate_model_picker<A: OrchestrationControlAction, V: View>(
     dropdown: &ViewHandle<Dropdown<A>>,
     initial_model_id: &str,
     ctx: &mut ViewContext<V>,
 ) {
+    populate_model_picker_for_harness(dropdown, initial_model_id, "", ctx);
+}
+
+/// Returns whether the given LLM matches the harness filter.
+/// Claude → Anthropic only, Codex → OpenAI only, Oz/empty → all.
+fn matches_harness_filter(harness: Option<Harness>, provider: &LLMProvider) -> bool {
+    match harness {
+        Some(Harness::Claude) => matches!(provider, LLMProvider::Anthropic),
+        Some(Harness::Codex) => matches!(provider, LLMProvider::OpenAI),
+        Some(Harness::Oz)
+        | Some(Harness::Gemini)
+        | Some(Harness::OpenCode)
+        | Some(Harness::Unknown)
+        | None => true,
+    }
+}
+
+/// Populates the model picker, filtering choices by harness.
+/// Claude → Anthropic models only, Codex → OpenAI models only,
+/// Oz/empty → all models.
+pub fn populate_model_picker_for_harness<A: OrchestrationControlAction, V: View>(
+    dropdown: &ViewHandle<Dropdown<A>>,
+    initial_model_id: &str,
+    harness_type: &str,
+    ctx: &mut ViewContext<V>,
+) {
     let initial_model_id = initial_model_id.to_string();
+    let harness_type = harness_type.to_string();
     dropdown.update(ctx, |dropdown, ctx_dropdown| {
         let llm_prefs = LLMPreferences::as_ref(ctx_dropdown);
-        let choices: Vec<_> = llm_prefs.get_base_llm_choices_for_agent_mode().collect();
+        let all_choices: Vec<_> = llm_prefs.get_base_llm_choices_for_agent_mode().collect();
+        let harness = Harness::parse_orchestration_harness(&harness_type);
+        let choices: Vec<_> = all_choices
+            .into_iter()
+            .filter(|llm| matches_harness_filter(harness, &llm.provider))
+            .collect();
         let selected_display_name = choices
             .iter()
             .find(|llm| llm.id.to_string() == initial_model_id)
@@ -311,6 +352,36 @@ pub fn populate_model_picker<A: OrchestrationControlAction, V: View>(
             dropdown.set_selected_by_name(name, ctx_dropdown);
         }
     });
+}
+
+/// Returns whether the given model_id is present in the harness-filtered
+/// model choices. Used to detect when a harness change invalidates the
+/// current model selection.
+pub fn is_model_in_filtered_choices<V: View>(
+    model_id: &str,
+    harness_type: &str,
+    ctx: &mut ViewContext<V>,
+) -> bool {
+    let llm_prefs = LLMPreferences::as_ref(ctx);
+    let harness = Harness::parse_orchestration_harness(harness_type);
+    llm_prefs
+        .get_base_llm_choices_for_agent_mode()
+        .filter(|llm| matches_harness_filter(harness, &llm.provider))
+        .any(|llm| llm.id.to_string() == model_id)
+}
+
+/// Returns the model_id of the first model in the harness-filtered set,
+/// or `None` if the filtered set is empty.
+pub fn first_filtered_model_id<V: View>(
+    harness_type: &str,
+    ctx: &mut ViewContext<V>,
+) -> Option<String> {
+    let llm_prefs = LLMPreferences::as_ref(ctx);
+    let harness = Harness::parse_orchestration_harness(harness_type);
+    llm_prefs
+        .get_base_llm_choices_for_agent_mode()
+        .find(|llm| matches_harness_filter(harness, &llm.provider))
+        .map(|llm| llm.id.to_string())
 }
 
 pub fn populate_harness_picker<A: OrchestrationControlAction, V: View>(
@@ -496,6 +567,145 @@ pub fn sync_picker_selections<A: OrchestrationControlAction, V: View>(
     }
 }
 
+// ── Adaptive picker layout ──────────────────────────────────────────
+
+/// Lays out children horizontally at a fixed width when they all fit,
+/// otherwise stacks them vertically at full available width.
+///
+/// Switches to vertical when `n * picker_width + (n-1) * spacing` exceeds
+/// the available width from the incoming size constraint.
+struct AdaptivePickerRow {
+    children: Vec<Box<dyn Element>>,
+    picker_width: f32,
+    spacing: f32,
+    is_vertical: bool,
+    size: Option<Vector2F>,
+    origin: Option<Point>,
+}
+
+impl AdaptivePickerRow {
+    fn new(picker_width: f32, spacing: f32) -> Self {
+        Self {
+            children: Vec::new(),
+            picker_width,
+            spacing,
+            is_vertical: false,
+            size: None,
+            origin: None,
+        }
+    }
+
+    fn add_child(&mut self, child: Box<dyn Element>) {
+        self.children.push(child);
+    }
+
+    fn finish(self) -> Box<dyn Element> {
+        Box::new(self)
+    }
+}
+
+impl Element for AdaptivePickerRow {
+    fn layout(
+        &mut self,
+        constraint: SizeConstraint,
+        ctx: &mut LayoutContext,
+        app: &AppContext,
+    ) -> Vector2F {
+        let n = self.children.len();
+        if n == 0 {
+            self.size = Some(Vector2F::zero());
+            return Vector2F::zero();
+        }
+
+        let total_horizontal =
+            self.picker_width * n as f32 + self.spacing * n.saturating_sub(1) as f32;
+
+        self.is_vertical = total_horizontal > constraint.max.x();
+
+        if self.is_vertical {
+            let width = constraint.max.x();
+            let mut total_height = 0.0f32;
+            for (i, child) in self.children.iter_mut().enumerate() {
+                if i > 0 {
+                    total_height += self.spacing;
+                }
+                let child_constraint =
+                    SizeConstraint::new(vec2f(width, 0.), vec2f(width, f32::INFINITY));
+                let child_size = child.layout(child_constraint, ctx, app);
+                total_height += child_size.y();
+            }
+            let size = vec2f(width, total_height);
+            self.size = Some(size);
+            size
+        } else {
+            let mut max_height = 0.0f32;
+            for child in self.children.iter_mut() {
+                let child_constraint = SizeConstraint::new(
+                    vec2f(self.picker_width, 0.),
+                    vec2f(self.picker_width, f32::INFINITY),
+                );
+                let child_size = child.layout(child_constraint, ctx, app);
+                max_height = max_height.max(child_size.y());
+            }
+            let size = vec2f(total_horizontal, max_height);
+            self.size = Some(size);
+            size
+        }
+    }
+
+    fn after_layout(&mut self, ctx: &mut AfterLayoutContext, app: &AppContext) {
+        for child in &mut self.children {
+            child.after_layout(ctx, app);
+        }
+    }
+
+    fn paint(&mut self, origin: Vector2F, ctx: &mut PaintContext, app: &AppContext) {
+        self.origin = Some(Point::from_vec2f(origin, ctx.scene.z_index()));
+        let mut current = origin;
+        if self.is_vertical {
+            for (i, child) in self.children.iter_mut().enumerate() {
+                if i > 0 {
+                    current += vec2f(0., self.spacing);
+                }
+                child.paint(current, ctx, app);
+                if let Some(size) = child.size() {
+                    current += vec2f(0., size.y());
+                }
+            }
+        } else {
+            for (i, child) in self.children.iter_mut().enumerate() {
+                if i > 0 {
+                    current += vec2f(self.spacing, 0.);
+                }
+                child.paint(current, ctx, app);
+                let advance = child.size().map_or(self.picker_width, |s| s.x());
+                current += vec2f(advance, 0.);
+            }
+        }
+    }
+
+    fn size(&self) -> Option<Vector2F> {
+        self.size
+    }
+
+    fn origin(&self) -> Option<Point> {
+        self.origin
+    }
+
+    fn dispatch_event(
+        &mut self,
+        event: &DispatchedEvent,
+        ctx: &mut EventContext,
+        app: &AppContext,
+    ) -> bool {
+        let mut handled = false;
+        for child in &mut self.children {
+            handled |= child.dispatch_event(event, ctx, app);
+        }
+        handled
+    }
+}
+
 // ── Render helpers ──────────────────────────────────────────────────
 
 pub fn render_mode_toggle<A: OrchestrationControlAction>(
@@ -551,7 +761,7 @@ pub fn render_mode_toggle<A: OrchestrationControlAction>(
         segmented_control
     } else {
         ConstrainedBox::new(segmented_control)
-            .with_width(205.)
+            .with_width(ORCHESTRATION_PICKER_MAX_WIDTH)
             .finish()
     };
 
@@ -628,7 +838,7 @@ pub fn render_picker_row_with_layout<A: OrchestrationControlAction>(
     if vertical {
         let mut column = Flex::column()
             .with_cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_spacing(8.);
+            .with_spacing(12.);
 
         let add = |col: &mut Flex, label: &str, picker: Option<Box<dyn Element>>| {
             col.add_child(render_picker_column(label, picker, appearance));
@@ -673,16 +883,13 @@ pub fn render_picker_row_with_layout<A: OrchestrationControlAction>(
             .with_margin_top(12.)
             .finish()
     } else {
-        let mut row = Flex::row()
-            .with_cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_main_axis_size(MainAxisSize::Max)
-            .with_main_axis_alignment(MainAxisAlignment::Start)
-            .with_spacing(12.);
+        let mut row = AdaptivePickerRow::new(ORCHESTRATION_PICKER_MAX_WIDTH, 12.);
 
-        let add_picker = |row: &mut Flex, label: &str, picker: Option<Box<dyn Element>>| {
-            let col = render_picker_column(label, picker, appearance);
-            row.add_child(Expanded::new(1.0, col).finish());
-        };
+        let add_picker =
+            |row: &mut AdaptivePickerRow, label: &str, picker: Option<Box<dyn Element>>| {
+                let col = render_picker_column(label, picker, appearance);
+                row.add_child(col);
+            };
 
         add_picker(
             &mut row,

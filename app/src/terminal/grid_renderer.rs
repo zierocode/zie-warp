@@ -2835,5 +2835,5 @@ fn render_dotted_line(
 }
 
 #[cfg(test)]
-#[path = "grid_renderer_test.rs"]
+#[path = "grid_renderer_tests.rs"]
 pub mod tests;
